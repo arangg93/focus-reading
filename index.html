@@ -1,0 +1,428 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Focus Reading Training (Random 200/1000)</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;700;900&family=Urbanist:wght@400;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <style>
+        /* 1. SETUP & RESET */
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        
+        body {
+            background-color: #000; /* 완전한 몰입을 위한 블랙 배경 */
+            color: #fff;
+            font-family: 'Noto Sans KR', sans-serif;
+            overflow: hidden; /* 스크롤 방지 */
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        /* 2. SLIDE CONTAINER */
+        .slide-deck {
+            position: relative;
+            width: 1280px;
+            height: 720px;
+        }
+
+        .slide-container {
+            display: none; /* 기본적으로 숨김, JS로 제어 */
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            width: 100%;
+            height: 100%;
+            position: absolute;
+            top: 0;
+            left: 0;
+            background-color: #000;
+            padding: 40px;
+        }
+
+        .slide-container.active {
+            display: flex;
+        }
+
+        /* 3. TYPOGRAPHY */
+        h1, h2 {
+            font-weight: 900;
+            line-height: 1.2;
+            text-align: center;
+        }
+
+        /* Title Slide */
+        .title-slide h1 { font-size: 80px; color: #deff9a; margin-bottom: 20px; }
+        .title-slide p { font-size: 24px; color: #a3a3a3; }
+        .instruction { margin-top: 40px; font-size: 18px; color: #fff; border: 1px solid #333; padding: 15px 30px; border-radius: 50px; }
+
+        /* Training Text Styles */
+        .word-center {
+            font-size: 120px;
+            color: #fff;
+            text-shadow: 0 0 20px rgba(255, 255, 255, 0.5);
+        }
+
+        /* Diamond Layout */
+        .diamond-container {
+            width: 100%;
+            height: 100%;
+            position: relative;
+        }
+
+        .word-corner {
+            position: absolute;
+            font-size: 60px;
+            color: #deff9a; /* 라임색으로 주변 시야 자극 */
+            font-weight: 700;
+        }
+
+        .top-left { top: 50px; left: 50px; }
+        .top-right { top: 50px; right: 50px; }
+        .bottom-left { bottom: 50px; left: 50px; }
+        .bottom-right { bottom: 50px; right: 50px; }
+
+        /* Crosshair for Center Focus in Diamond Layout */
+        .fixation-point {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 20px;
+            height: 20px;
+            background-color: #333;
+            border-radius: 50%;
+            opacity: 0.5;
+        }
+
+        /* 4. CONTROLS */
+        .controls {
+            position: fixed;
+            bottom: 30px;
+            right: 30px;
+            z-index: 1000;
+            display: flex;
+            gap: 10px;
+        }
+
+        button {
+            padding: 15px 30px;
+            font-size: 18px;
+            font-weight: bold;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-family: 'Noto Sans KR', sans-serif;
+            transition: transform 0.1s;
+        }
+
+        #start-btn { background-color: #deff9a; color: #000; }
+        #stop-btn { background-color: #ff5f5f; color: #fff; display: none; }
+        #reset-btn { background-color: #333; color: #fff; }
+
+        button:active { transform: scale(0.95); }
+
+        /* Progress Bar */
+        .progress-bar {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            height: 5px;
+            background-color: #deff9a;
+            width: 0%;
+            transition: width 1s linear;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="slide-deck" id="deck">
+        
+        <!-- Slide 0: Title -->
+        <div class="slide-container title-slide active" id="title-slide">
+            <h1>포커스 리딩<br>심화 훈련</h1>
+            <p>1000단어 중 200단어 랜덤 추출 (무한 반복)</p>
+            <div class="instruction">
+                <i class="fa-solid fa-eye"></i> F11을 눌러 전체화면으로 만드세요.<br>
+                [중지] 버튼을 누를 때까지 훈련이 계속됩니다.
+            </div>
+        </div>
+
+        <!-- Generated Slides will be inserted here -->
+
+        <!-- Final Slide (Template) - Will be skipped in loop -->
+        <div class="slide-container" id="final-slide-template">
+            <h1 style="color: #deff9a">훈련 완료</h1>
+            <p style="margin-top: 20px;">수고하셨습니다. <br>이제 책을 펼쳐 실전 독서에 돌입하세요.</p>
+        </div>
+
+    </div>
+
+    <div class="progress-bar" id="progress"></div>
+
+    <div class="controls">
+        <button id="start-btn" onclick="startTraining()"><i class="fa-solid fa-play"></i> 훈련 시작</button>
+        <button id="stop-btn" onclick="stopTraining()"><i class="fa-solid fa-stop"></i> 중지</button>
+        <button id="reset-btn" onclick="resetAndReshuffle()"><i class="fa-solid fa-shuffle"></i> 새로운 세트 (리셋)</button>
+    </div>
+
+    <script>
+        // 1. Massive Word Pool (~1000 words)
+        const fullWordPool = [
+            // A. 독서 & 학습 (Reading & Learning)
+            "독서", "속독", "정독", "다독", "통찰", "이해", "분석", "종합", "적용", "실천",
+            "집중", "몰입", "기억", "망각", "복습", "예습", "질문", "대답", "토론", "발표",
+            "요약", "발췌", "메모", "기록", "정리", "구조", "맥락", "핵심", "주제", "소재",
+            "논리", "근거", "주장", "설득", "비판", "창의", "상상", "연상", "추론", "판단",
+            "지식", "지혜", "정보", "데이터", "패턴", "원리", "법칙", "이론", "실무", "경험",
+            "학습", "공부", "연구", "탐구", "호기심", "발견", "해결", "성장", "발전", "진보",
+            "스킵", "스캔", "관점", "시야", "안목", "직관", "영감", "아이디어", "해법", "솔루션",
+            "교훈", "메시지", "의도", "배경", "행간", "단어", "문장", "문단", "챕터", "서문",
+            "목차", "인덱스", "각주", "참고", "문헌", "저자", "독자", "출판", "편집", "기획",
+            "비평", "감상", "서평", "리뷰", "토의", "강의", "수업", "교재", "노트", "필기",
+
+            // B. 마인드셋 & 성공 (Mindset & Success)
+            "성공", "실패", "도전", "극복", "용기", "열정", "끈기", "인내", "노력", "성취",
+            "목표", "계획", "비전", "사명", "가치", "철학", "신념", "확신", "믿음", "자신감",
+            "자존감", "긍정", "낙관", "희망", "꿈", "소망", "의지", "결단", "선택", "책임",
+            "습관", "반복", "지속", "꾸준함", "성실", "정직", "신뢰", "약속", "규율", "원칙",
+            "변화", "혁신", "개혁", "도약", "비상", "탈피", "각성", "자각", "반성", "회고",
+            "감사", "행복", "기쁨", "보람", "만족", "평화", "여유", "휴식", "충전", "활력",
+            "건강", "체력", "정신", "마음", "영혼", "태도", "자세", "예의", "겸손", "배려",
+            "리더", "팔로워", "영향력", "카리스마", "소통", "공감", "경청", "화합", "협력", "상생",
+            "멘토", "멘티", "조언", "충고", "격려", "위로", "응원", "지지", "도움", "나눔",
+            "기부", "봉사", "헌신", "희생", "사랑", "우정", "인연", "운명", "행운", "기적",
+
+            // C. 경제 & 경영 (Business & Economy)
+            "경제", "경영", "시장", "고객", "수요", "공급", "가격", "가치", "비용", "수익",
+            "이익", "매출", "자본", "투자", "자산", "부채", "현금", "주식", "부동산", "금융",
+            "마케팅", "브랜드", "홍보", "광고", "전략", "기획", "인사", "조직", "팀워크", "성과",
+            "효율", "생산", "품질", "서비스", "유통", "판매", "영업", "협상", "계약", "거래",
+            "경쟁", "차별화", "우위", "선점", "트렌드", "유행", "미래", "전망", "예측", "대비",
+            "리스크", "위기", "기회", "운", "타이밍", "속도", "실행", "추진", "마감", "납기",
+            "창업", "사업", "기업", "회사", "직장", "업무", "프로젝트", "미션", "비즈니스", "모델",
+            "혁신", "기술", "과학", "디지털", "아날로그", "데이터", "플랫폼", "네트워크", "연결", "융합",
+            "CEO", "임원", "직원", "동료", "상사", "부하", "채용", "면접", "이력서", "연봉",
+            "복지", "은퇴", "노후", "연금", "보험", "세금", "정책", "규제", "법률", "특허",
+
+            // D. IT & 과학 (IT & Science)
+            "컴퓨터", "인터넷", "소프트웨어", "하드웨어", "알고리즘", "코딩", "프로그래밍", "개발", "서버", "클라우드",
+            "모바일", "어플", "웹사이트", "데이터", "정보", "통신", "보안", "해킹", "바이러스", "백신",
+            "인공지능", "AI", "머신러닝", "딥러닝", "로봇", "드론", "자율주행", "블록체인", "메타버스", "가상현실",
+            "우주", "행성", "별", "은하", "블랙홀", "중력", "상대성", "양자", "원자", "분자",
+            "물리", "화학", "생물", "지구", "환경", "기후", "에너지", "전기", "전자", "반도체",
+            "배터리", "충전", "전파", "파동", "빛", "소리", "진동", "속도", "가속도", "힘",
+            "세포", "유전자", "DNA", "진화", "생명", "바이오", "의학", "약학", "병원", "수술",
+            "치료", "예방", "백신", "면역", "건강", "운동", "영양", "다이어트", "수면", "스트레스",
+            "뇌과학", "심리", "뉴런", "시냅스", "호르몬", "도파민", "감각", "지각", "인지", "행동",
+
+            // E. 인문 & 예술 (Humanities & Arts)
+            "역사", "세계사", "한국사", "전쟁", "혁명", "문명", "고대", "중세", "근대", "현대",
+            "철학", "사상", "윤리", "도덕", "종교", "신화", "전설", "민담", "설화", "우화",
+            "문학", "소설", "수필", "시", "희곡", "작가", "시인", "작품", "고전", "명작",
+            "예술", "미술", "음악", "영화", "사진", "건축", "디자인", "패션", "무용", "연극",
+            "그림", "조각", "전시", "박물관", "미술관", "공연", "콘서트", "악기", "노래", "연주",
+            "멜로디", "리듬", "화음", "색채", "구도", "명암", "원근법", "추상", "사실", "표현",
+            "창작", "표절", "모방", "영감", "뮤즈", "비평", "해석", "관객", "청중", "팬덤",
+            "문화", "전통", "풍습", "축제", "기념일", "휴일", "여행", "관광", "명소", "유적",
+
+            // F. 사회 & 정치 (Society & Politics)
+            "사회", "국가", "민족", "인종", "국민", "시민", "정부", "국회", "법원", "경찰",
+            "정치", "민주주의", "자유", "평등", "권리", "의무", "투표", "선거", "정당", "여론",
+            "언론", "방송", "뉴스", "신문", "기자", "보도", "특종", "이슈", "논란", "토론",
+            "법", "헌법", "법률", "규칙", "조례", "판결", "재판", "변호사", "검사", "판사",
+            "범죄", "수사", "체포", "구속", "형벌", "감옥", "교도소", "교화", "용서", "화해",
+            "복지", "의료", "교육", "학교", "대학", "입시", "취업", "실업", "노동", "임금",
+            "환경", "오염", "보호", "재활용", "쓰레기", "기후", "온난화", "탄소", "에너지", "자원",
+            "국제", "외교", "전쟁", "평화", "협정", "조약", "무역", "수출", "수입", "환율",
+
+            // G. 일상 & 감정 (Daily Life & Emotions)
+            "가족", "부모", "자녀", "형제", "자매", "남편", "아내", "조부모", "친척", "이웃",
+            "친구", "연인", "사랑", "이별", "만남", "약속", "데이트", "결혼", "출산", "육아",
+            "집", "주거", "청소", "빨래", "요리", "음식", "맛집", "카페", "커피", "차",
+            "아침", "점심", "저녁", "식사", "간식", "야식", "술", "안주", "회식", "파티",
+            "옷", "신발", "가방", "화장", "미용", "쇼핑", "선물", "택배", "편지", "전화",
+            "기쁨", "슬픔", "분노", "공포", "불안", "우울", "행복", "즐거움", "재미", "유머",
+            "감동", "눈물", "웃음", "미소", "화", "짜증", "스트레스", "피로", "휴식", "잠",
+            "꿈", "희망", "절망", "후회", "반성", "다짐", "용기", "자신감", "열등감", "질투",
+
+            // H. 사자성어 & 추상어 (Idioms & Abstract)
+            "일취월장", "괄목상대", "대기만성", "유비무환", "고진감래", "새옹지마", "전화위복", "청출어람", "온고지신", "타산지석",
+            "역지사지", "동고동락", "일석이조", "금상첨화", "다다익선", "과유불급", "사상누각", "언행일치", "솔선수범", "결자해지",
+            "심사숙고", "주마간산", "우공이산", "백절불굴", "칠전팔기", "마부작침", "우후죽순", "파죽지세", "승승장구", "용기백배",
+            "본질", "실체", "현상", "이면", "허상", "진실", "거짓", "오해", "편견", "선입견",
+            "자유", "평등", "정의", "도덕", "윤리", "양심", "법칙", "질서", "혼돈", "우주",
+            "시간", "공간", "세계", "역사", "문화", "예술", "미학", "창조", "파괴", "재생",
+            "생명", "자연", "환경", "생태", "진화", "적응", "생존", "공존", "순환", "균형",
+            "무한", "유한", "영원", "찰나", "순간", "지금", "여기", "현재", "과거", "미래",
+            "가능성", "잠재력", "한계", "초월", "극복", "승리", "패배", "성공", "실패", "도전",
+            "모험", "탐험", "여행", "여정", "목적지", "방향", "속도", "거리", "높이", "깊이"
+        ];
+
+        // 2. Variables & Elements
+        const deck = document.getElementById('deck');
+        const titleSlide = document.getElementById('title-slide');
+        const finalSlideTemplate = document.getElementById('final-slide-template');
+        const progressBar = document.getElementById('progress');
+        const startBtn = document.getElementById('start-btn');
+        const stopBtn = document.getElementById('stop-btn');
+        const resetBtn = document.getElementById('reset-btn');
+
+        let intervalId = null;
+        let slides = []; 
+        let currentSlide = 0;
+        const speed = 1000; // 1 second
+
+        // 3. Shuffle & Generate Logic
+        function shuffle(array) {
+            let currentIndex = array.length, randomIndex;
+            // While there remain elements to shuffle...
+            while (currentIndex != 0) {
+                // Pick a remaining element...
+                randomIndex = Math.floor(Math.random() * currentIndex);
+                currentIndex--;
+                // And swap it with the current element.
+                [array[currentIndex], array[randomIndex]] = [
+                    array[randomIndex], array[currentIndex]];
+            }
+            return array;
+        }
+
+        function generateSlides() {
+            // A. Clean up existing generated slides
+            const existingSlides = document.querySelectorAll('.generated-slide');
+            existingSlides.forEach(el => el.remove());
+
+            // B. Shuffle and Pick 200 words (40 groups of 5)
+            // Clone array to avoid mutating original pool
+            const shuffledPool = shuffle([...fullWordPool]);
+            const selectedWords = shuffledPool.slice(0, 200);
+
+            // C. Create Slide Elements
+            // We need 40 groups. Each group uses 5 words (1 Center, 4 Diamond).
+            for (let i = 0; i < 40; i++) {
+                const groupWords = selectedWords.slice(i * 5, (i + 1) * 5);
+                
+                // Fallback for safety if groupWords is incomplete
+                if (groupWords.length < 5) break; 
+
+                const [centerWord, ...corners] = groupWords;
+
+                // 1. Center Slide
+                const centerSlide = document.createElement('div');
+                centerSlide.className = 'slide-container generated-slide';
+                centerSlide.innerHTML = `<h1 class="word-center">${centerWord}</h1>`;
+                
+                // Insert before final slide template
+                deck.insertBefore(centerSlide, finalSlideTemplate);
+
+                // 2. Diamond Slide
+                const diamondSlide = document.createElement('div');
+                diamondSlide.className = 'slide-container generated-slide';
+                diamondSlide.innerHTML = `
+                    <div class="diamond-container">
+                        <div class="fixation-point"></div>
+                        <div class="word-corner top-left">${corners[0]}</div>
+                        <div class="word-corner top-right">${corners[1]}</div>
+                        <div class="word-corner bottom-left">${corners[2]}</div>
+                        <div class="word-corner bottom-right">${corners[3]}</div>
+                    </div>
+                `;
+                deck.insertBefore(diamondSlide, finalSlideTemplate);
+            }
+
+            // D. Refresh slides NodeList
+            slides = document.querySelectorAll('.slide-container');
+        }
+
+        // 4. Playback Logic
+        function showSlide(index) {
+            slides.forEach((slide, i) => {
+                slide.classList.remove('active');
+                if (i === index) {
+                    slide.classList.add('active');
+                }
+            });
+            
+            // Update Progress Bar (Infinite Loop Visual)
+            // Shows progress within the current cycle of 40 sets (80 slides)
+            // slides includes Title(0) + 80 generated + Final (last)
+            // Generated slides are index 1 to 80. Total relevant slides = slides.length - 2
+            const totalTrainingSlides = slides.length - 2;
+            let currentProgress = index;
+            if (currentProgress > totalTrainingSlides) currentProgress = 1; // Loop wrap visual fix
+            
+            const percentage = (currentProgress / totalTrainingSlides) * 100;
+            progressBar.style.width = percentage + '%';
+        }
+
+        function nextSlide() {
+            // Infinite Loop Logic
+            // slides[0] = Title
+            // slides[1] ... slides[N-2] = Training
+            // slides[N-1] = Final (We skip this in infinite loop)
+            
+            const lastTrainingIndex = slides.length - 2;
+
+            if (currentSlide < lastTrainingIndex) {
+                currentSlide++;
+            } else {
+                // Loop back to the first generated slide (Index 1)
+                currentSlide = 1;
+            }
+            showSlide(currentSlide);
+        }
+
+        function startTraining() {
+            if (intervalId) return;
+            
+            // Start from the first generated slide if at title
+            if(currentSlide === 0) currentSlide = 1;
+            showSlide(currentSlide);
+
+            startBtn.style.display = 'none';
+            stopBtn.style.display = 'block';
+            resetBtn.disabled = true; // Disable reset while running
+            resetBtn.style.opacity = 0.5;
+
+            intervalId = setInterval(nextSlide, speed);
+        }
+
+        function stopTraining() {
+            clearInterval(intervalId);
+            intervalId = null;
+            startBtn.style.display = 'block';
+            stopBtn.style.display = 'none';
+            startBtn.innerHTML = '<i class="fa-solid fa-play"></i> 계속하기';
+            
+            resetBtn.disabled = false;
+            resetBtn.style.opacity = 1;
+        }
+
+        function resetAndReshuffle() {
+            stopTraining();
+            // Go back to title
+            currentSlide = 0;
+            // Regenerate random words
+            generateSlides();
+            // Show title
+            showSlide(0);
+            
+            startBtn.innerHTML = '<i class="fa-solid fa-play"></i> 훈련 시작';
+            progressBar.style.width = '0%';
+        }
+
+        // Initialize on Load
+        window.onload = function() {
+            generateSlides();
+            slides = document.querySelectorAll('.slide-container');
+            showSlide(0);
+        };
+
+    </script>
+</body>
+</html>
